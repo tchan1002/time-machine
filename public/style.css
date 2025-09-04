@@ -63,19 +63,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   display: grid;
   gap: 16px;
   align-items: start;
-  grid-auto-columns: 1fr;
+  grid-template-columns: repeat(4, 1fr);
 }
-.compare-card {
-  background: var(--card);
+.compare-entry {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
 }
-.compare-card-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px; }
-.compare-card-content { max-height: 600px; overflow: auto; }
+.compare-entry-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px; }
+.compare-entry-content { max-height: 600px; overflow: auto; }
 /* hide scrollbars while allowing scroll */
-.compare-card-content { scrollbar-width: none; }
-.compare-card-content::-webkit-scrollbar { width: 0; height: 0; }
+.compare-entry-content { scrollbar-width: none; }
+.compare-entry-content::-webkit-scrollbar { width: 0; height: 0; }
 
 /* Invisible scroll containers for stats tables */
 .scroll-invisible { overflow: auto; scrollbar-width: none; }
@@ -100,9 +99,12 @@ details > summary h2 { display: inline; }
 .chart-labels { display: flex; gap: 12px; color: var(--muted); font-size: 12px; margin-bottom: 8px; flex-wrap: wrap; }
 .sparkline { display: block; width: 100%; height: auto; }
 .cooccurrence-graph { display: block; width: 100%; height: auto; }
-details { border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; padding: 8px; }
-details > summary { cursor: pointer; list-style: none; }
-details > summary h2 { display: inline; }
+details { margin: 4px 0; }
+details > summary { 
+  cursor: pointer; 
+  padding: 4px 0;
+}
+details > summary h2 { display: inline; margin: 0; }
 
 @media (max-width: 800px) {
   .compare-grid { grid-template-columns: 1fr !important; }
