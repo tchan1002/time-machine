@@ -602,9 +602,10 @@ function wordLookupPage(entries) {
   <div class="word-search-container">
     <input type="text" id="word-search" placeholder="Search for a word..." class="word-search-input">
     <button id="search-btn" class="btn">Search</button>
+    <button id="random-word-btn" class="btn">Random Word</button>
   </div>
   
-  <div id="search-results" class="search-results" style="display: none;">
+  <div id="search-results" class="search-results">
     <div id="selected-words" class="selected-words"></div>
     <div id="similar-words" class="similar-words"></div>
   </div>
@@ -699,6 +700,7 @@ function wordLookupPage(entries) {
     
     const searchInput = document.getElementById('word-search');
     const searchBtn = document.getElementById('search-btn');
+    const randomWordBtn = document.getElementById('random-word-btn');
     const searchResults = document.getElementById('search-results');
     const selectedWords = document.getElementById('selected-words');
     const similarWords = document.getElementById('similar-words');
@@ -739,10 +741,23 @@ function wordLookupPage(entries) {
       searchResults.style.display = 'block';
     }
     
+    function showRandomWord() {
+      const words = Array.from(WORD_TRENDS.keys());
+      if (words.length === 0) return;
+      
+      const randomWord = words[Math.floor(Math.random() * words.length)];
+      searchInput.value = randomWord;
+      performSearch();
+    }
+    
     searchBtn.addEventListener('click', performSearch);
+    randomWordBtn.addEventListener('click', showRandomWord);
     searchInput.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') performSearch();
     });
+    
+    // Show a random word on page load
+    showRandomWord();
   })();
 </script>`;
 
