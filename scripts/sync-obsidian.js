@@ -25,12 +25,12 @@ async function syncFromObsidian() {
     
     // Clone or pull latest
     try {
-      await execAsync(`git clone ${OBSIDIAN_REPO_URL} ${TEMP_DIR}`);
+      await execAsync(`git clone ${OBSIDIAN_REPO_URL} "${TEMP_DIR}"`);
       console.log('✅ Cloned Obsidian repo');
     } catch (error) {
       // If already exists, pull latest
       console.log('📥 Pulling latest changes...');
-      await execAsync(`cd ${TEMP_DIR} && git pull`);
+      await execAsync(`cd "${TEMP_DIR}" && git pull`);
       console.log('✅ Updated Obsidian repo');
     }
     
@@ -41,7 +41,7 @@ async function syncFromObsidian() {
     const files = await readdir(OBSIDIAN_ENTRIES_PATH);
     const mdFiles = files.filter(f => f.endsWith('.md') && /^\d{4}-\d{2}-\d{2}\.md$/.test(f));
     
-    console.log(`�� Found ${mdFiles.length} journal entries in 100 Days folder`);
+    console.log(`📋 Found ${mdFiles.length} journal entries in 100 Days folder`);
     
     for (const file of mdFiles) {
       const srcPath = path.join(OBSIDIAN_ENTRIES_PATH, file);
@@ -61,7 +61,7 @@ async function syncFromObsidian() {
     console.log('✅ Deployed successfully');
     
     // Cleanup
-    await execAsync(`rm -rf ${TEMP_DIR}`);
+    await execAsync(`rm -rf "${TEMP_DIR}"`);
     console.log('🧹 Cleaned up temporary files');
     
     console.log('🎉 Sync complete!');

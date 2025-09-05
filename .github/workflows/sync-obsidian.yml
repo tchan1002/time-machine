@@ -15,7 +15,7 @@ jobs:
     - name: Sync from Obsidian Repo
       run: |
         git clone https://${{ secrets.OBSIDIAN_TOKEN }}@github.com/tchan1002/obsidian.git temp-obsidian
-        cp temp-obsidian/Obsidian\ Vault/100\ Days/*.md entries/
+        cp "temp-obsidian/Obsidian Vault/100 Days"/*.md entries/
         rm -rf temp-obsidian
     
     - name: Setup Node.js
