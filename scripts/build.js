@@ -88,6 +88,7 @@ function baseLayout({ title, content, extraHead = '', extraScripts = '', base = 
         <a href="${prefix}index.html">Home</a>
         <a href="${prefix}compare.html">Compare</a>
         <a href="${prefix}stats.html">Stats</a>
+        <a href="${prefix}words.html">Words</a>
       </nav>
     </header>
     <main class="container">
@@ -557,6 +558,202 @@ async function writeStatsPage(entries) {
   await writeFile(path.join(DIST_DIR, 'stats.html'), html, 'utf8');
 }
 
+function wordLookupPage(entries) {
+  // Build word frequency data for all words
+  const { overall, perYear } = buildWordFrequency(entries);
+  
+  // Monthly trends per word
+  const monthlyOrder = Array.from(new Set(entries.map(e => `${e.meta.year}-${String(e.meta.month).padStart(2,'0')}`))).sort((a,b)=>a.localeCompare(b));
+  const monthIndex = new Map(monthlyOrder.map((k,i)=>[k,i]));
+  const perWordMonthCounts = new Map();
+  
+  for (const e of entries) {
+    const ym = `${e.meta.year}-${String(e.meta.month).padStart(2,'0')}`;
+    const tokens = wordsWithoutStopwords(tokenizeForWordCount(e.markdown));
+    for (const w of tokens) {
+      if (!perWordMonthCounts.has(w)) perWordMonthCounts.set(w, new Array(monthlyOrder.length).fill(0));
+      const arr = perWordMonthCounts.get(w);
+      arr[monthIndex.get(ym)]++;
+    }
+  }
+
+  // Calculate correlation between word trends
+  function correlation(arr1, arr2) {
+    if (arr1.length !== arr2.length) return 0;
+    const n = arr1.length;
+    const sum1 = arr1.reduce((a, b) => a + b, 0);
+    const sum2 = arr2.reduce((a, b) => a + b, 0);
+    const sum1Sq = arr1.reduce((a, b) => a + b * b, 0);
+    const sum2Sq = arr2.reduce((a, b) => a + b * b, 0);
+    const pSum = arr1.reduce((a, b, i) => a + b * arr2[i], 0);
+    const num = pSum - (sum1 * sum2 / n);
+    const den = Math.sqrt((sum1Sq - sum1 * sum1 / n) * (sum2Sq - sum2 * sum2 / n));
+    return den === 0 ? 0 : num / den;
+  }
+
+  // Get all words with at least 5 occurrences, excluding numbers
+  const wordsWithTrends = Array.from(perWordMonthCounts.entries())
+    .filter(([w, arr]) => arr.reduce((a,b)=>a+b,0) >= 5 && !/^[0-9]+$/.test(w))
+    .map(([w, arr]) => [w, arr.slice(1)]); // drop first month for normalization
+
+  const content = `
+<section>
+  <h1>Word Lookup & Trends</h1>
+  <div class="word-search-container">
+    <input type="text" id="word-search" placeholder="Search for a word..." class="word-search-input">
+    <button id="search-btn" class="btn">Search</button>
+  </div>
+  
+  <div id="search-results" class="search-results" style="display: none;">
+    <div id="selected-words" class="selected-words"></div>
+    <div id="similar-words" class="similar-words"></div>
+  </div>
+</section>`;
+
+  const extraScripts = `
+<script>
+  (function(){
+    const WORD_TRENDS = new Map(${JSON.stringify(wordsWithTrends)});
+    const MONTH_LABELS = ${JSON.stringify(monthlyOrder.slice(1))};
+    
+    function correlation(arr1, arr2) {
+      if (arr1.length !== arr2.length) return 0;
+      const n = arr1.length;
+      const sum1 = arr1.reduce((a, b) => a + b, 0);
+      const sum2 = arr2.reduce((a, b) => a + b, 0);
+      const sum1Sq = arr1.reduce((a, b) => a + b * b, 0);
+      const sum2Sq = arr2.reduce((a, b) => a + b * b, 0);
+      const pSum = arr1.reduce((a, b, i) => a + b * arr2[i], 0);
+      const num = pSum - (sum1 * sum2 / n);
+      const den = Math.sqrt((sum1Sq - sum1 * sum1 / n) * (sum2Sq - sum2 * sum2 / n));
+      return den === 0 ? 0 : num / den;
+    }
+    
+    function renderSparkline(values, options = {}) {
+      const { width = 200, height = 60, stroke = '#fff', strokeWidth = 2 } = options;
+      if (!values.length) return '<svg width="' + width + '" height="' + height + '"></svg>';
+      const max = Math.max(...values);
+      const min = Math.min(...values);
+      const range = max - min || 1;
+      const points = values.map((v, i) => {
+        const x = (i / (values.length - 1)) * width;
+        const y = height - ((v - min) / range) * height;
+        return x + ',' + y;
+      }).join(' ');
+      return '<svg width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '"><polyline fill="none" stroke="' + stroke + '" stroke-width="' + strokeWidth + '" points="' + points + '"/></svg>';
+    }
+    
+    function findSimilarWords(targetWord, targetTrend) {
+      const similarities = [];
+      for (const [word, trend] of WORD_TRENDS) {
+        if (word === targetWord) continue;
+        const corr = correlation(targetTrend, trend);
+        if (Math.abs(corr) > 0.3) { // minimum threshold for similarity
+          similarities.push({ word, correlation: corr, trend });
+        }
+      }
+      
+      // Sort by correlation strength
+      const sorted = similarities.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+      
+      // Find the cutoff: either 50% correlation or at least 5 words
+      let cutoff = 5;
+      for (let i = 0; i < sorted.length; i++) {
+        if (Math.abs(sorted[i].correlation) < 0.5) {
+          cutoff = Math.max(5, i);
+          break;
+        }
+      }
+      
+      return sorted.slice(0, cutoff);
+    }
+    
+    function displayWord(word, trend) {
+      const sparkline = renderSparkline(trend, { width: 300, height: 80, stroke: '#10b981' });
+      const totalCount = trend.reduce((a, b) => a + b, 0);
+      
+      return \`
+        <div class="word-display">
+          <h3>\${word} (total: \${totalCount})</h3>
+          <div class="word-trend">\${sparkline}</div>
+        </div>
+      \`;
+    }
+    
+    function displaySimilarWords(similarWords) {
+      if (!similarWords.length) return '<p>No similar words found.</p>';
+      
+      return \`
+        <h4>Similar Words (by trend correlation)</h4>
+        <div class="similar-words-list">
+          \${similarWords.map(({word, correlation, trend}) => \`
+            <div class="similar-word">
+              <span class="word-name">\${word}</span>
+              <span class="correlation">\${(correlation * 100).toFixed(1)}%</span>
+              <div class="word-trend-small clickable-trend" data-word="\${word}">\${renderSparkline(trend, { width: 150, height: 40, stroke: '#6b7280' })}</div>
+            </div>
+          \`).join('')}
+        </div>
+      \`;
+    }
+    
+    const searchInput = document.getElementById('word-search');
+    const searchBtn = document.getElementById('search-btn');
+    const searchResults = document.getElementById('search-results');
+    const selectedWords = document.getElementById('selected-words');
+    const similarWords = document.getElementById('similar-words');
+    
+    function performSearch() {
+      const query = searchInput.value.trim().toLowerCase();
+      if (!query) return;
+      
+      const word = query;
+      const trend = WORD_TRENDS.get(word);
+      
+      if (!trend) {
+        selectedWords.innerHTML = '<p>Word not found. Try another word.</p>';
+        similarWords.innerHTML = '';
+        searchResults.style.display = 'block';
+        return;
+      }
+      
+      // Display the word
+      selectedWords.innerHTML = displayWord(word, trend);
+      
+      // Find and display similar words
+      const similar = findSimilarWords(word, trend);
+      similarWords.innerHTML = displaySimilarWords(similar);
+      
+      // Add click listeners to similar word graphs
+      setTimeout(() => {
+        document.querySelectorAll('.clickable-trend').forEach(element => {
+          element.style.cursor = 'pointer';
+          element.addEventListener('click', function() {
+            const wordToSearch = this.getAttribute('data-word');
+            searchInput.value = wordToSearch;
+            performSearch();
+          });
+        });
+      }, 100);
+      
+      searchResults.style.display = 'block';
+    }
+    
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') performSearch();
+    });
+  })();
+</script>`;
+
+  return baseLayout({ title: 'Word Lookup', content, extraScripts, base: '' });
+}
+
+async function writeWordLookupPage(entries) {
+  const html = wordLookupPage(entries);
+  await writeFile(path.join(DIST_DIR, 'words.html'), html, 'utf8');
+}
+
 async function main() {
   await ensureDir(ENTRIES_DIR);
   await ensureDir(PUBLIC_DIR);
@@ -567,6 +764,7 @@ async function main() {
   await writeHomePage(entries);
   await writeComparePage(entries);
   await writeStatsPage(entries);
+  await writeWordLookupPage(entries);
   console.log(`Built ${entries.length} entries to ${DIST_DIR}`);
 }
 
