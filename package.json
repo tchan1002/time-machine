@@ -7,7 +7,8 @@
   "scripts": {
     "build": "node scripts/build.js",
     "deploy": "gh-pages -d dist",
-    "clean:entries": "node scripts/clean.js"
+    "clean:entries": "node scripts/clean.js",
+    "sync:obsidian": "node scripts/sync-obsidian.js"
   },
   "dependencies": {
     "marked": "^12.0.2"
@@ -16,4 +17,3 @@
     "gh-pages": "^6.1.1"
   }
 }
-
